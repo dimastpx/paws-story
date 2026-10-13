@@ -1,0 +1,199 @@
+{% macro marker(ev) -%}
+<div class="marker {{ ev.type }}">{% if ev.type == 'join' %}+{% else %}&minus;{% endif %}</div>
+{%- endmacro %}
+
+{% macro comment_block(ev) -%}
+{% if ev.comment %}
+<div class="comment-link {{ ev.type }}"></div>
+<div class="comment-card {{ ev.type }}" title="{{ ev.comment }}">
+  <div class="comment-card-head">Комментарий</div>
+  <p class="comment-card-text">{{ ev.comment }}</p>
+</div>
+{% endif %}
+{%- endmacro %}
+
+{% macro tile(ev, placement) -%}
+<div class="tile" data-placement="{{ placement }}">
+  <div class="tile-header">
+    <span class="badge {{ ev.type }}">
+      {% if ev.type == 'join' %}+ Пришёл{% else %}&minus; Ушёл{% endif %}
+    </span>
+    <span class="date-chip">{{ ev.date }}</span>
+  </div>
+  <div class="tile-body">
+    <div class="avatar-box {% if ev.type == 'join' %}av-join{% else %}av-leave{% endif %}">
+      <span>{{ ev.name[0] }}</span>
+    </div>
+    <div class="user-info">
+      <h3 class="user-name">{{ ev.name }}</h3>
+      <p class="user-role">{{ ev.role }}</p>
+    </div>
+  </div>
+
+  <div class="tile-footer">
+    <span class="team-chip">👥 В составе: <b>{{ ev.count }}</b></span>
+  </div>
+
+  <!-- Шаблон данных для всплывающего окна -->
+  <div class="roster-template" style="display: none;">
+    <div class="popover-title">
+      <span>Состав на {{ ev.date }}</span>
+      <span class="count-pill">{{ ev.count }} чел.</span>
+    </div>
+    <div class="popover-list">
+      {% for m in ev.snapshot %}
+      <div class="popover-item">
+        <span class="m-name">{{ m.name }}</span>
+        <span class="m-role">{{ m.role }}</span>
+      </div>
+      {% else %}
+      <div class="popover-empty">Состав пуст</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Состав Павсов — Хронология</title>
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_v }}">
+  <!-- Раскладка колонки и карточка комментария. Живёт в шаблоне, чтобы не зависеть от версии style.css -->
+  <style>
+    /* РАСКЛАДКА КОЛОНКИ: явные строки сетки (карточка комментария — на противоположной стороне оси) */
+    .col-top    > .tile         { grid-row: 1; }
+    .col-top    > .stem         { grid-row: 2; }
+    .col-top    > .marker       { grid-row: 3; }
+    .col-top    > .comment-link { grid-row: 4; }
+    .col-top    > .comment-card { grid-row: 5; align-self: start; }
+
+    .col-bottom > .comment-card { grid-row: 1; align-self: end; }
+    .col-bottom > .comment-link { grid-row: 2; }
+    .col-bottom > .marker       { grid-row: 3; }
+    .col-bottom > .stem         { grid-row: 4; }
+    .col-bottom > .tile         { grid-row: 5; }
+
+    /* КАРТОЧКА КОММЕНТАРИЯ (рендерится только если комментарий задан) */
+    .comment-link {
+      width: 0;
+      height: 100%;
+      border-left: 2px dashed rgba(var(--accent, 245, 158, 11), 0.55);
+    }
+
+    .comment-link.join,  .comment-card.join  { --accent: 16, 185, 129; }
+    .comment-link.leave, .comment-card.leave { --accent: 244, 63, 94; }
+
+    .comment-card {
+      --accent: 245, 158, 11;
+      position: relative;
+      width: 100%;
+      padding: 12px 16px 13px 18px;
+      background: linear-gradient(180deg, #241c16 0%, #1b1511 100%);
+      border: 1px solid rgba(var(--accent), 0.35);
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .comment-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, rgba(var(--accent), 1), rgba(var(--accent), 0.35));
+    }
+
+    .timeline-col:hover .comment-card {
+      border-color: rgba(var(--accent), 0.75);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.65), 0 0 16px rgba(var(--accent), 0.18);
+    }
+
+    .comment-card-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: rgb(var(--accent));
+    }
+
+    .comment-card-head::before {
+      content: "\201C";
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 22px;
+      line-height: 0.8;
+      height: 12px;
+    }
+
+    .comment-card-text {
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #eadccd;
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <div class="logo-mark">🐾</div>
+      <div>
+        <h1>Состав Павсов</h1>
+        <p class="subtitle">Интерактивный таймлайн команды от основания до текущего дня</p>
+      </div>
+    </div>
+    <div class="counter-tile">
+      <span class="counter-label">В составе сейчас</span>
+      <span class="counter-value">{{ current_count }}</span>
+    </div>
+  </header>
+
+  <main class="timeline-viewport" id="viewport">
+    <div class="timeline-track">
+      <div class="timeline-rail"></div>
+
+      <div class="columns-wrap">
+        {% for ev in events %}
+        {% set is_top = (loop.index % 2 == 1) %}
+        <div class="timeline-col {% if is_top %}col-top{% else %}col-bottom{% endif %}">
+          {% if is_top %}
+            {{ tile(ev, 'top') }}
+            <div class="stem"></div>
+            {{ marker(ev) }}
+            {{ comment_block(ev) }}
+          {% else %}
+            {{ comment_block(ev) }}
+            {{ marker(ev) }}
+            <div class="stem"></div>
+            {{ tile(ev, 'bottom') }}
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+
+  <!-- Единое плавающее окно (не перекрывается шапкой и границами) -->
+  <div id="rosterTooltip" class="roster-popover-fixed"></div>
+
+  <footer class="footer">
+    <span>Листайте таймлайн горизонтально колесиком мыши или перетаскивайте курсором</span>
+  </footer>
+
+  <script src="/static/script.js?v={{ asset_v }}"></script>
+</body>
+</html>
