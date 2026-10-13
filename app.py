@@ -34,6 +34,15 @@ def load_timeline():
         })
     return enriched
 
+@app.context_processor
+def inject_asset_version():
+    # Версия статики = время изменения файлов, чтобы браузер не держал старый кэш
+    static_dir = os.path.join(os.path.dirname(__file__), 'static')
+    files = ('style.css', 'script.js')
+    mtimes = [os.path.getmtime(os.path.join(static_dir, f)) for f in files
+              if os.path.exists(os.path.join(static_dir, f))]
+    return {'asset_v': int(max(mtimes)) if mtimes else 0}
+
 @app.route('/')
 def index():
     events = load_timeline()
